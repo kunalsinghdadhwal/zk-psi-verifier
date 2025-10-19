@@ -29,11 +29,11 @@ name = "bench"
 harness = false
 
 [[bin]]
-name = "setup"
+name = "zk-psi-setup"
 path = "src/bin/setup.rs"
 
 [[bin]]
-name = "cli"
+name = "zk-psi-cli"
 path = "src/bin/cli.rs"
 
 [lib]
