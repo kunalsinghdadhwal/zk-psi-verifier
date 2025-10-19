@@ -13,6 +13,12 @@ use rand::rngs::OsRng;
 
 pub const MAX_SET_SIZE: usize = 32;
 
+type Halo2Setup<E> = (
+    halo2_proofs::poly::commitment::Params<E>,
+    ProvingKey<E>,
+    VerifyingKey<E>,
+);
+
 pub fn hash_to_field(value: u64) -> Fp {
     let bytes = value.to_le_bytes();
     let hash = blake3::hash(&bytes);
@@ -239,16 +245,7 @@ impl Circuit<Fp> for PsiCircuit {
 }
 
 /// Simplified setup function for EqAffine curve
-pub fn setup_eq(
-    k: u32,
-) -> Result<
-    (
-        halo2_proofs::poly::commitment::Params<EqAffine>,
-        ProvingKey<EqAffine>,
-        VerifyingKey<EqAffine>,
-    ),
-    Error,
-> {
+pub fn setup_eq(k: u32) -> Result<Halo2Setup<EqAffine>, Error> {
     let params = halo2_proofs::poly::commitment::Params::<EqAffine>::new(k);
     let empty_circuit = PsiCircuit::default();
 

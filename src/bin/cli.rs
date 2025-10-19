@@ -91,42 +91,34 @@ fn prove_command(
     params_path: PathBuf,
     public_inputs_file: PathBuf,
 ) -> Result<()> {
-    println!("🔐 ZK-PSI Proof Generation");
-    println!("━━━━━━━━━━━━━━━━━━━━━━━━━━");
+    println!("ZK-PSI Proof Generation");
 
     // Parse input sets
     let start = Instant::now();
     let set_a = parse_set(&set_a_str).context("Failed to parse set A")?;
     let set_b = parse_set(&set_b_str).context("Failed to parse set B")?;
 
-    println!("📊 Input Sets:");
     println!("  Set A: {} elements", set_a.len());
     println!("  Set B: {} elements", set_b.len());
 
-    // Compute actual intersection
     let circuit = PsiCircuit::new(set_a.clone(), set_b.clone(), 0);
     let intersection_size = circuit.compute_intersection_size();
-    println!("  Intersection size: {}", intersection_size);
+    println!("Intersection size: {}", intersection_size);
 
     // Create circuit with correct intersection size
     let circuit = PsiCircuit::new(set_a, set_b, intersection_size);
 
-    // Load params and regenerate keys
-    println!("\n📂 Loading cryptographic parameters...");
     let k_bytes = fs::read(&params_path)
         .with_context(|| format!("Failed to read params from {:?}", params_path))?;
     let k: u32 = bincode::deserialize(&k_bytes)?;
 
-    println!("  ✓ Params loaded (k={})", k);
-    println!("  Regenerating proving key...");
+    println!("Params loaded (k={})", k);
+    println!("Regenerating proving key...");
 
     let (params, pk, _vk) =
         setup_eq(k).map_err(|e| anyhow::anyhow!("Failed to setup keys: {:?}", e))?;
 
-    println!("  ✓ Keys generated");
-
-    // Generate proof
-    println!("\n⚙️  Generating proof...");
+    println!("\nGenerating proof...");
     let proof_start = Instant::now();
 
     let public_inputs = vec![Fp::from(intersection_size)];
@@ -134,25 +126,23 @@ fn prove_command(
         .map_err(|e| anyhow::anyhow!("Proof generation failed: {:?}", e))?;
 
     let proof_time = proof_start.elapsed();
-    println!("  ✓ Proof generated in {:.2?}", proof_time);
-    println!("  Proof size: {} bytes", proof.len());
+    println!("Proof generated in {:.2?}", proof_time);
+    println!("Proof size: {} bytes", proof.len());
 
-    // Save proof
     fs::write(&output, &proof).with_context(|| format!("Failed to write proof to {:?}", output))?;
-    println!("  ✓ Proof saved to {:?}", output);
+    println!("Proof saved to {:?}", output);
 
     // Save public inputs (convert Fp to bytes manually)
     let public_inputs_bytes: Vec<u8> = intersection_size.to_le_bytes().to_vec();
     fs::write(&public_inputs_file, &public_inputs_bytes)
         .with_context(|| format!("Failed to write public inputs to {:?}", public_inputs_file))?;
-    println!("  ✓ Public inputs saved to {:?}", public_inputs_file);
+    println!("Public inputs saved to {:?}", public_inputs_file);
 
     let total_time = start.elapsed();
-    println!("\n✅ Success!");
-    println!("━━━━━━━━━━━━━━━━━━━━━━━━━━");
     println!("Total time: {:.2?}", total_time);
     println!("Proof generation time: {:.2?}", proof_time);
     println!("Public intersection size: {}", intersection_size);
+    println!("Proof Generated Successfully!");
 
     Ok(())
 }
@@ -163,18 +153,14 @@ fn verify_command(
     _vk_path: PathBuf,
     params_path: PathBuf,
 ) -> Result<()> {
-    println!("✓ ZK-PSI Proof Verification");
-    println!("━━━━━━━━━━━━━━━━━━━━━━━━━━");
+    println!("ZK-PSI Proof Verification");
 
     let start = Instant::now();
 
-    // Load proof
-    println!("📂 Loading proof and keys...");
     let proof = fs::read(&proof_path)
         .with_context(|| format!("Failed to read proof from {:?}", proof_path))?;
-    println!("  ✓ Proof loaded ({} bytes)", proof.len());
+    println!("Proof loaded ({} bytes)", proof.len());
 
-    // Load public inputs
     let public_inputs_bytes = fs::read(&public_inputs_path)
         .with_context(|| format!("Failed to read public inputs from {:?}", public_inputs_path))?;
 
@@ -184,7 +170,6 @@ fn verify_command(
             .try_into()
             .context("Invalid public inputs format")?,
     );
-    println!("  ✓ Public intersection size: {}", intersection_size);
 
     let public_inputs = vec![Fp::from(intersection_size)];
 
@@ -193,26 +178,22 @@ fn verify_command(
         .with_context(|| format!("Failed to read params from {:?}", params_path))?;
     let k: u32 = bincode::deserialize(&k_bytes)?;
 
-    println!("  ✓ Params loaded (k={})", k);
-    println!("  Regenerating verifying key...");
+    println!("Params loaded (k={})", k);
+    println!("Regenerating verifying key...");
 
     let (params, _pk, vk) =
         setup_eq(k).map_err(|e| anyhow::anyhow!("Failed to setup keys: {:?}", e))?;
 
-    println!("  ✓ Keys generated");
-
-    // Verify proof
-    println!("\n🔍 Verifying proof...");
+    println!("\nVerifying proof...");
     let verify_start = Instant::now();
 
     match verify_proof(&params, &vk, &proof, &public_inputs) {
         Ok(_) => {
             let verify_time = verify_start.elapsed();
-            println!("  ✓ Verification completed in {:.2?}", verify_time);
+            println!("Verification completed in {:.2?}", verify_time);
 
             let total_time = start.elapsed();
-            println!("\n✅ PROOF VALID!");
-            println!("━━━━━━━━━━━━━━━━━━━━━━━━━━");
+            println!("Valid proof!");
             println!(
                 "The prover knows two sets with intersection size: {}",
                 intersection_size
@@ -221,8 +202,7 @@ fn verify_command(
             Ok(())
         }
         Err(e) => {
-            println!("\n❌ PROOF INVALID!");
-            println!("━━━━━━━━━━━━━━━━━━━━━━━━━━");
+            println!("Invalid proof!");
             Err(anyhow::anyhow!("Verification failed: {:?}", e))
         }
     }

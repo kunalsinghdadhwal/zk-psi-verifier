@@ -34,13 +34,13 @@ fn main() -> Result<()> {
     let (_params, _pk, _vk) =
         setup_eq(args.k).map_err(|e| anyhow::anyhow!("Failed to generate keys: {:?}", e))?;
 
-    println!("✓ Keys generated successfully");
+    println!("Keys generated successfully");
 
     // Save params (just save k value for reconstruction)
     let params_path = args.output_dir.join("params.bin");
     let params_bytes = bincode::serialize(&args.k)?;
     fs::write(&params_path, params_bytes)?;
-    println!("✓ Saved params to {:?}", params_path);
+    println!("Saved params to {:?}", params_path);
 
     // Note: Halo2 0.3 ProvingKey and VerifyingKey don't have built-in serialization
     // For production use, you would need to:
@@ -50,13 +50,13 @@ fn main() -> Result<()> {
     // For now, we'll store a marker file
     let pk_path = args.output_dir.join("proving_key.bin");
     fs::write(&pk_path, b"PK_PLACEHOLDER")?;
-    println!("✓ Proving key generated (not serialized - regenerate when needed)");
+    println!("Proving key generated (not serialized - regenerate when needed)");
 
     let vk_path = args.output_dir.join("verifying_key.bin");
     fs::write(&vk_path, b"VK_PLACEHOLDER")?;
-    println!("✓ Verifying key generated (not serialized - regenerate when needed)");
+    println!("Verifying key generated (not serialized - regenerate when needed)");
 
-    println!("\n✅ Setup complete! Keys saved to {:?}", args.output_dir);
+    println!("\nSetup complete! Keys saved to {:?}", args.output_dir);
     println!("\nNext steps:");
     println!("  1. Use 'cli prove' to generate proofs");
     println!("  2. Use 'cli verify' to verify proofs");
