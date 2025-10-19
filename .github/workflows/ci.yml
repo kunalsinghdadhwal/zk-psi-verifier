@@ -8,17 +8,19 @@ on:
 permissions:
   contents: write
 
-env:
-  BINARIES: "zk-psi-setup zk-psi-cli"
-  TAG: ${{ github.ref_name }}
-
 jobs:
-  build-and-release:
+  release:
     runs-on: ubuntu-latest
-
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+
+      - name: Create GitHub Release
+        uses: taiki-e/create-gh-release-action@v1
+        with:
+          changelog: CHANGELOG.md
+          allow-missing-changelog: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
@@ -27,58 +29,26 @@ jobs:
 
       - uses: Swatinem/rust-cache@v2
 
-      - name: Build Binaries
-        run: |
-          mkdir -p artifacts
-          for bin in $BINARIES; do
-            cargo build --release --bin $bin --target x86_64-unknown-linux-gnu
-            cp target/x86_64-unknown-linux-gnu/release/$bin artifacts/${bin}-x86_64-linux-${TAG}
-          done
-          cp LICENSE README.md artifacts/
-
-      - name: Generate Checksums
-        run: |
-          cd artifacts
-          sha256sum * > SHA256SUMS
-          sha512sum * > SHA512SUMS
-          cat SHA256SUMS
-
-      - name: Package Artifacts
-        run: |
-          cd artifacts
-          tar -czf zk-psi-linux-x86_64-${TAG}.tar.gz * 
-
-      - name: Create GitHub Release
-        uses: taiki-e/create-gh-release-action@v1
+      - name: Build and Upload Binaries
+        uses: taiki-e/upload-rust-binary-action@v1
+        with:
+          bin: setup
+          target: x86_64-unknown-linux-gnu
+          archive: zk-psi-setup-x86_64-linux-${{ github.ref_name }}
+          include: LICENSE,README.md
+          checksum: sha256,sha512
+          ref: ${{ github.ref }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Upload Release Assets
-        uses: actions/upload-release-asset@v1
+      - name: Build and Upload CLI
+        uses: taiki-e/upload-rust-binary-action@v1
         with:
-          upload_url: ${{ steps.create-gh-release-action.outputs.upload_url }}
-          asset_path: artifacts/zk-psi-linux-x86_64-${TAG}.tar.gz
-          asset_name: zk-psi-linux-x86_64-${TAG}.tar.gz
-          asset_content_type: application/gzip
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Upload Checksums
-        uses: actions/upload-release-asset@v1
-        with:
-          upload_url: ${{ steps.create-gh-release-action.outputs.upload_url }}
-          asset_path: artifacts/SHA256SUMS
-          asset_name: SHA256SUMS
-          asset_content_type: text/plain
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Upload Checksums
-        uses: actions/upload-release-asset@v1
-        with:
-          upload_url: ${{ steps.create-gh-release-action.outputs.upload_url }}
-          asset_path: artifacts/SHA512SUMS
-          asset_name: SHA512SUMS
-          asset_content_type: text/plain
+          bin: cli
+          target: x86_64-unknown-linux-gnu
+          archive: zk-psi-cli-x86_64-linux-${{ github.ref_name }}
+          include: LICENSE,README.md
+          checksum: sha256,sha512
+          ref: ${{ github.ref }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
