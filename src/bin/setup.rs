@@ -1,8 +1,10 @@
 use anyhow::Result;
-use std::fs;
+use std    // Generate keys
+    let (params, pk, vk) = setup_eq(args.k)
+        .map_err(|e| anyhow::anyhow!("Failed to generate keys: {:?}", e))?;s;
 use std::path::PathBuf;
 use clap::Parser;
-use zk_psi_verifier::setup;
+use zk_psi_verifier::setup_eq;
 
 #[derive(Parser, Debug)]
 #[command(name = "setup")]

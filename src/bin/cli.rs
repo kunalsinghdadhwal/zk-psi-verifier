@@ -5,7 +5,6 @@ use std::fs;
 use std::path::PathBuf;
 use std::time::Instant;
 use ff::PrimeField;
-use halo2_proofs::poly::kzg::commitment::ParamsKZG;
 use pasta_curves::EqAffine;
 use halo2_proofs::plonk::{ProvingKey, VerifyingKey};
 
@@ -120,7 +119,7 @@ fn prove_command(
     let k_bytes = fs::read(&params_path)
         .with_context(|| format!("Failed to read params from {:?}", params_path))?;
     let k: u32 = bincode::deserialize(&k_bytes)?;
-    let params: ParamsKZG<EqAffine> = ParamsKZG::new(k);
+    let params = halo2_proofs::poly::commitment::Params::<EqAffine>::new(k);
     println!("  ✓ Params loaded (k={})", k);
     
     // Load proving key
@@ -192,7 +191,7 @@ fn verify_command(
     let k_bytes = fs::read(&params_path)
         .with_context(|| format!("Failed to read params from {:?}", params_path))?;
     let k: u32 = bincode::deserialize(&k_bytes)?;
-    let params: ParamsKZG<EqAffine> = ParamsKZG::new(k);
+    let params = halo2_proofs::poly::commitment::Params::<EqAffine>::new(k);
     println!("  ✓ Params loaded (k={})", k);
     
     // Load verifying key

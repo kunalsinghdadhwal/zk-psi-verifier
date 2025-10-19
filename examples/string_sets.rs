@@ -1,5 +1,5 @@
 use pasta_curves::Fp;
-use zk_psi_verifier::{hash_string_to_field, PsiCircuit, setup, generate_proof, verify_proof};
+use zk_psi_verifier::{hash_string_to_field, PsiCircuit, setup_eq, generate_proof, verify_proof};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("=== ZK-PSI String Sets Example ===\n");
@@ -27,7 +27,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Setup
     println!("Performing trusted setup...");
     let k = 10;
-    let (params, pk, vk) = setup(k)?;
+    let (params, pk, vk) = setup_eq(k)?;
     println!("✓ Setup complete\n");
     
     // Alice generates a proof

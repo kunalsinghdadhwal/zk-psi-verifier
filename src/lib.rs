@@ -1,28 +1,20 @@
-use ff::Field;
+use ff::PrimeField;
 use halo2_proofs::{
-    arithmetic::Field as ArithmeticField,
     circuit::{AssignedCell, Layouter, SimpleFloorPlanner, Value},
     plonk::{
-        Advice, Circuit, Column, ConstraintSystem, Error, Expression, Fixed, Instance, Selector,
-        VerifyingKey, ProvingKey,
+        create_proof, keygen_pk, keygen_vk, verify_proof as halo2_verify_proof, Advice, Circuit,
+        Column, ConstraintSystem, Error, Expression, Instance, ProvingKey, Selector,
+        VerifyingKey,
     },
     poly::{
-        commitment::ParamsProver,
-        kzg::{
-            commitment::{KZGCommitmentScheme, ParamsKZG},
-            multiopen::{ProverSHPLONK, VerifierSHPLONK},
-            strategy::SingleStrategy,
-        },
-        Rotation, VerificationStrategy,
+        commitment::{CommitmentScheme, Params},
+        Rotation,
     },
-    transcript::{
-        Blake2bRead, Blake2bWrite, Challenge255, TranscriptReadBuffer, TranscriptWriterBuffer,
-    },
+    transcript::{Blake2bRead, Blake2bWrite, Challenge255},
 };
-use pasta_curves::{vesta, Fp, EqAffine};
+use group::Curve;
+use pasta_curves::{pallas, EqAffine, Fp};
 use rand::rngs::OsRng;
-use serde::{Deserialize, Serialize};
-use std::marker::PhantomData;
 
 pub const MAX_SET_SIZE: usize = 32;
 
@@ -36,7 +28,7 @@ pub fn hash_to_field(value: u64) -> Fp {
     let mut repr = [0u8; 32];
     repr[..31].copy_from_slice(&hash_bytes[..31]);
     
-    Fp::from_repr(repr).unwrap_or(Fp::zero())
+    Fp::from_repr(repr).unwrap()
 }
 
 /// Hash a string to a field element
@@ -47,7 +39,7 @@ pub fn hash_string_to_field(s: &str) -> Fp {
     let mut repr = [0u8; 32];
     repr[..31].copy_from_slice(&hash_bytes[..31]);
     
-    Fp::from_repr(repr).unwrap_or(Fp::zero())
+    Fp::from_repr(repr).unwrap()
 }
 
 /// Configuration for the PSI circuit
@@ -170,7 +162,7 @@ impl PsiConfig {
                     || Value::known(match_bit_val),
                 )?;
                 
-                let new_sum = if let Some(prev) = prev_sum {
+                let new_sum = if let Some(ref prev) = prev_sum {
                     prev.value().copied() + Value::known(match_bit_val)
                 } else {
                     Value::known(match_bit_val)
@@ -190,7 +182,7 @@ impl PsiConfig {
 }
 
 /// PSI Circuit structure
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default)]
 pub struct PsiCircuit {
     /// First set of hashed elements
     pub set_a: Vec<Fp>,
@@ -271,36 +263,42 @@ impl Circuit<Fp> for PsiCircuit {
     }
 }
 
-/// Generate proving and verifying keys
-pub fn setup(
-    k: u32,
-) -> Result<(ParamsKZG<EqAffine>, ProvingKey<EqAffine>, VerifyingKey<EqAffine>), Error> {
-    let params: ParamsKZG<EqAffine> = ParamsKZG::new(k);
+/// Generate proving and verifying keys using Params generic type
+pub fn setup<Scheme: CommitmentScheme>(
+    params: &Scheme::Params,
+) -> Result<(ProvingKey<Scheme::Curve>, VerifyingKey<Scheme::Curve>), Error>
+where
+    Scheme::Scalar: ff::FromUniformBytes<64>,
+{
     let empty_circuit = PsiCircuit::default();
     
-    let vk = halo2_proofs::plonk::keygen_vk(&params, &empty_circuit)?;
-    let pk = halo2_proofs::plonk::keygen_pk(&params, vk.clone(), &empty_circuit)?;
+    let vk = keygen_vk(params, &empty_circuit)?;
+    let pk = keygen_pk(params, vk.clone(), &empty_circuit)?;
+    
+    Ok((pk, vk))
+}
+
+/// Simplified setup function for EqAffine curve
+pub fn setup_eq(k: u32) -> Result<(halo2_proofs::poly::commitment::Params<EqAffine>, ProvingKey<EqAffine>, VerifyingKey<EqAffine>), Error> {
+    let params = halo2_proofs::poly::commitment::Params::<EqAffine>::new(k);
+    let empty_circuit = PsiCircuit::default();
+    
+    let vk = keygen_vk(&params, &empty_circuit)?;
+    let pk = keygen_pk(&params, vk.clone(), &empty_circuit)?;
     
     Ok((params, pk, vk))
 }
 
 /// Generate a proof for the PSI circuit
 pub fn generate_proof(
-    params: &ParamsKZG<EqAffine>,
+    params: &halo2_proofs::poly::commitment::Params<EqAffine>,
     pk: &ProvingKey<EqAffine>,
     circuit: PsiCircuit,
     public_inputs: &[Fp],
 ) -> Result<Vec<u8>, Error> {
-    let mut transcript = Blake2bWrite::<_, EqAffine, Challenge255<_>>::init(vec![]);
+    let mut transcript = Blake2bWrite::<_, _, Challenge255<_>>::init(vec![]);
     
-    halo2_proofs::plonk::create_proof::<
-        KZGCommitmentScheme<EqAffine>,
-        ProverSHPLONK<'_, EqAffine>,
-        Challenge255<EqAffine>,
-        _,
-        Blake2bWrite<Vec<u8>, EqAffine, Challenge255<EqAffine>>,
-        _,
-    >(
+    create_proof(
         params,
         pk,
         &[circuit],
@@ -314,27 +312,16 @@ pub fn generate_proof(
 
 /// Verify a proof for the PSI circuit
 pub fn verify_proof(
-    params: &ParamsKZG<EqAffine>,
+    params: &halo2_proofs::poly::commitment::Params<EqAffine>,
     vk: &VerifyingKey<EqAffine>,
     proof: &[u8],
     public_inputs: &[Fp],
 ) -> Result<(), Error> {
-    let strategy = SingleStrategy::new(params);
-    let mut transcript = Blake2bRead::<_, EqAffine, Challenge255<_>>::init(proof);
+    use halo2_proofs::plonk::VerificationStrategy;
+    let strategy = halo2_proofs::plonk::SingleVerifier::new(params);
+    let mut transcript = Blake2bRead::<_, _, Challenge255<_>>::init(proof);
     
-    halo2_proofs::plonk::verify_proof::<
-        KZGCommitmentScheme<EqAffine>,
-        VerifierSHPLONK<'_, EqAffine>,
-        Challenge255<EqAffine>,
-        Blake2bRead<&[u8], EqAffine, Challenge255<EqAffine>>,
-        SingleStrategy<'_, EqAffine>,
-    >(
-        params,
-        vk,
-        strategy,
-        &[&[public_inputs]],
-        &mut transcript,
-    )
+    halo2_verify_proof(params, vk, strategy, &[&[public_inputs]], &mut transcript)
 }
 
 #[cfg(test)]
@@ -369,16 +356,21 @@ mod tests {
     }
     
     #[test]
-    fn test_circuit_synthesis() {
+    fn test_full_proof_verification_flow() {
         let set_a = vec![hash_to_field(1), hash_to_field(2)];
         let set_b = vec![hash_to_field(2), hash_to_field(3)];
         
-        let circuit = PsiCircuit::new(set_a, set_b, 1);
+        let circuit = PsiCircuit::new(set_a.clone(), set_b.clone(), 0);
+        let intersection_size = circuit.compute_intersection_size();
+        assert_eq!(intersection_size, 1);
         
         let k = 10;
-        let params: ParamsKZG<EqAffine> = ParamsKZG::new(k);
+        let (params, pk, vk) = setup_eq(k).unwrap();
         
-        let vk = halo2_proofs::plonk::keygen_vk(&params, &circuit).unwrap();
-        let _pk = halo2_proofs::plonk::keygen_pk(&params, vk, &circuit).unwrap();
+        let circuit = PsiCircuit::new(set_a, set_b, intersection_size);
+        let public_inputs = vec![Fp::from(intersection_size)];
+        
+        let proof = generate_proof(&params, &pk, circuit, &public_inputs).unwrap();
+        verify_proof(&params, &vk, &proof, &public_inputs).unwrap();
     }
 }

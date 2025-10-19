@@ -1,7 +1,7 @@
 use ff::PrimeField;
 use pasta_curves::Fp;
 use zk_psi_verifier::{
-    hash_to_field, PsiCircuit, setup, generate_proof, verify_proof,
+    hash_to_field, PsiCircuit, setup_eq, generate_proof, verify_proof,
 };
 
 #[test]
@@ -27,7 +27,7 @@ fn test_full_proof_verification_flow() {
     
     // Setup
     let k = 10;
-    let (params, pk, vk) = setup(k).expect("Setup failed");
+    let (params, pk, vk) = setup_eq(k).expect("Setup failed");
     
     // Create circuit with correct intersection size
     let circuit = PsiCircuit::new(set_a, set_b, intersection_size);
@@ -54,7 +54,7 @@ fn test_empty_intersection() {
     assert_eq!(intersection_size, 0);
     
     let k = 10;
-    let (params, pk, vk) = setup(k).expect("Setup failed");
+    let (params, pk, vk) = setup_eq(k).expect("Setup failed");
     
     let circuit = PsiCircuit::new(set_a, set_b, intersection_size);
     let public_inputs = vec![Fp::from(intersection_size)];
@@ -80,7 +80,7 @@ fn test_full_intersection() {
     assert_eq!(intersection_size, 3);
     
     let k = 10;
-    let (params, pk, vk) = setup(k).expect("Setup failed");
+    let (params, pk, vk) = setup_eq(k).expect("Setup failed");
     
     let circuit = PsiCircuit::new(set_a, set_b, intersection_size);
     let public_inputs = vec![Fp::from(intersection_size)];
@@ -101,7 +101,7 @@ fn test_invalid_proof_fails() {
     let claimed_intersection = 0u64;
     
     let k = 10;
-    let (params, pk, vk) = setup(k).expect("Setup failed");
+    let (params, pk, vk) = setup_eq(k).expect("Setup failed");
     
     let circuit = PsiCircuit::new(set_a, set_b, claimed_intersection);
     let public_inputs = vec![Fp::from(claimed_intersection)];
@@ -127,7 +127,7 @@ fn test_large_sets() {
     assert_eq!(intersection_size, 7, "Intersection should be {10..=16}");
     
     let k = 12; // Need more rows for larger sets
-    let (params, pk, vk) = setup(k).expect("Setup failed");
+    let (params, pk, vk) = setup_eq(k).expect("Setup failed");
     
     let circuit = PsiCircuit::new(set_a, set_b, intersection_size);
     let public_inputs = vec![Fp::from(intersection_size)];
@@ -149,7 +149,7 @@ fn test_single_element_sets() {
     assert_eq!(intersection_size, 1);
     
     let k = 10;
-    let (params, pk, vk) = setup(k).expect("Setup failed");
+    let (params, pk, vk) = setup_eq(k).expect("Setup failed");
     
     let circuit = PsiCircuit::new(set_a, set_b, intersection_size);
     let public_inputs = vec![Fp::from(intersection_size)];

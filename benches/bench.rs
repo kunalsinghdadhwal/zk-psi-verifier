@@ -1,6 +1,6 @@
 use criterion::{black_box, criterion_group, criterion_main, Criterion, BenchmarkId};
 use pasta_curves::Fp;
-use zk_psi_verifier::{hash_to_field, PsiCircuit, setup, generate_proof, verify_proof};
+use zk_psi_verifier::{hash_to_field, PsiCircuit, setup_eq, generate_proof, verify_proof};
 
 fn bench_proof_generation(c: &mut Criterion) {
     let mut group = c.benchmark_group("proof_generation");
@@ -15,7 +15,7 @@ fn bench_proof_generation(c: &mut Criterion) {
         let intersection_size = circuit.compute_intersection_size();
         
         let k = 12;
-        let (params, pk, _vk) = setup(k).expect("Setup failed");
+        let (params, pk, _vk) = setup_eq(k).expect("Setup failed");
         
         group.bench_with_input(
             BenchmarkId::from_parameter(format!("{}x{}", size, size)),
@@ -57,7 +57,7 @@ fn bench_proof_verification(c: &mut Criterion) {
         let intersection_size = circuit.compute_intersection_size();
         
         let k = 12;
-        let (params, pk, vk) = setup(k).expect("Setup failed");
+        let (params, pk, vk) = setup_eq(k).expect("Setup failed");
         
         let circuit = PsiCircuit::new(set_a, set_b, intersection_size);
         let public_inputs = vec![Fp::from(intersection_size)];
@@ -93,7 +93,7 @@ fn bench_setup(c: &mut Criterion) {
             k,
             |b, &k| {
                 b.iter(|| {
-                    setup(black_box(k)).expect("Setup failed")
+                    setup_eq(black_box(k)).expect("Setup failed")
                 });
             },
         );
