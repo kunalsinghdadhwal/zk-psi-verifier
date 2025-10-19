@@ -3,31 +3,24 @@ use halo2_proofs::{
     circuit::{AssignedCell, Layouter, SimpleFloorPlanner, Value},
     plonk::{
         create_proof, keygen_pk, keygen_vk, verify_proof as halo2_verify_proof, Advice, Circuit,
-        Column, ConstraintSystem, Error, Expression, Instance, ProvingKey, Selector,
-        VerifyingKey,
+        Column, ConstraintSystem, Error, Expression, Instance, ProvingKey, Selector, VerifyingKey,
     },
-    poly::{
-        commitment::{CommitmentScheme, Params},
-        Rotation,
-    },
+    poly::Rotation,
     transcript::{Blake2bRead, Blake2bWrite, Challenge255},
 };
-use group::Curve;
-use pasta_curves::{pallas, EqAffine, Fp};
+use pasta_curves::{EqAffine, Fp};
 use rand::rngs::OsRng;
 
 pub const MAX_SET_SIZE: usize = 32;
 
-/// Hash a u64 value to a field element using Blake3
 pub fn hash_to_field(value: u64) -> Fp {
     let bytes = value.to_le_bytes();
     let hash = blake3::hash(&bytes);
     let hash_bytes = hash.as_bytes();
-    
-    // Take first 31 bytes to ensure we're within field modulus
+
     let mut repr = [0u8; 32];
     repr[..31].copy_from_slice(&hash_bytes[..31]);
-    
+
     Fp::from_repr(repr).unwrap()
 }
 
@@ -35,14 +28,13 @@ pub fn hash_to_field(value: u64) -> Fp {
 pub fn hash_string_to_field(s: &str) -> Fp {
     let hash = blake3::hash(s.as_bytes());
     let hash_bytes = hash.as_bytes();
-    
+
     let mut repr = [0u8; 32];
     repr[..31].copy_from_slice(&hash_bytes[..31]);
-    
+
     Fp::from_repr(repr).unwrap()
 }
 
-/// Configuration for the PSI circuit
 #[derive(Debug, Clone)]
 pub struct PsiConfig {
     /// Advice columns for set A elements
@@ -62,23 +54,22 @@ pub struct PsiConfig {
 }
 
 impl PsiConfig {
-    /// Configure the circuit constraints
     pub fn configure(meta: &mut ConstraintSystem<Fp>) -> Self {
         let set_a = meta.advice_column();
         let set_b = meta.advice_column();
         let match_bit = meta.advice_column();
         let sum = meta.advice_column();
         let instance = meta.instance_column();
-        
+
         meta.enable_equality(set_a);
         meta.enable_equality(set_b);
         meta.enable_equality(match_bit);
         meta.enable_equality(sum);
         meta.enable_equality(instance);
-        
+
         let q_equality = meta.selector();
         let q_sum = meta.selector();
-        
+
         // Equality gate: Ensures match_bit is correct
         // If set_a[i] == set_b[j], then match_bit must be 1, else 0
         // Constraint: match_bit * (match_bit - 1) == 0 (boolean constraint)
@@ -88,15 +79,16 @@ impl PsiConfig {
             let a = meta.query_advice(set_a, Rotation::cur());
             let b = meta.query_advice(set_b, Rotation::cur());
             let match_bit = meta.query_advice(match_bit, Rotation::cur());
-            
+
             vec![
                 // match_bit is boolean
-                q.clone() * (match_bit.clone() * (match_bit.clone() - Expression::Constant(Fp::one()))),
+                q.clone()
+                    * (match_bit.clone() * (match_bit.clone() - Expression::Constant(Fp::one()))),
                 // if a == b, then match_bit must be 1
                 q * (a - b) * (Expression::Constant(Fp::one()) - match_bit),
             ]
         });
-        
+
         // Sum gate: Accumulates the match count
         // sum[i] = sum[i-1] + match_bit[i]
         meta.create_gate("sum accumulator", |meta| {
@@ -104,12 +96,10 @@ impl PsiConfig {
             let sum_prev = meta.query_advice(sum, Rotation::prev());
             let sum_cur = meta.query_advice(sum, Rotation::cur());
             let match_bit = meta.query_advice(match_bit, Rotation::cur());
-            
-            vec![
-                q * (sum_cur - sum_prev - match_bit)
-            ]
+
+            vec![q * (sum_cur - sum_prev - match_bit)]
         });
-        
+
         Self {
             set_a,
             set_b,
@@ -120,7 +110,7 @@ impl PsiConfig {
             instance,
         }
     }
-    
+
     /// Assign a single comparison and update running sum
     pub fn assign_comparison(
         &self,
@@ -137,44 +127,29 @@ impl PsiConfig {
                 if offset > 0 {
                     self.q_sum.enable(&mut region, 0)?;
                 }
-                
-                region.assign_advice(
-                    || "set_a",
-                    self.set_a,
-                    0,
-                    || Value::known(a_val),
-                )?;
-                
-                region.assign_advice(
-                    || "set_b",
-                    self.set_b,
-                    0,
-                    || Value::known(b_val),
-                )?;
-                
+
+                region.assign_advice(|| "set_a", self.set_a, 0, || Value::known(a_val))?;
+
+                region.assign_advice(|| "set_b", self.set_b, 0, || Value::known(b_val))?;
+
                 let is_equal = a_val == b_val;
                 let match_bit_val = if is_equal { Fp::one() } else { Fp::zero() };
-                
+
                 region.assign_advice(
                     || "match_bit",
                     self.match_bit,
                     0,
                     || Value::known(match_bit_val),
                 )?;
-                
+
                 let new_sum = if let Some(ref prev) = prev_sum {
                     prev.value().copied() + Value::known(match_bit_val)
                 } else {
                     Value::known(match_bit_val)
                 };
-                
-                let sum_cell = region.assign_advice(
-                    || "sum",
-                    self.sum,
-                    0,
-                    || new_sum,
-                )?;
-                
+
+                let sum_cell = region.assign_advice(|| "sum", self.sum, 0, || new_sum)?;
+
                 Ok(sum_cell)
             },
         )
@@ -197,14 +172,14 @@ impl PsiCircuit {
     pub fn new(set_a: Vec<Fp>, set_b: Vec<Fp>, intersection_size: u64) -> Self {
         assert!(set_a.len() <= MAX_SET_SIZE, "Set A exceeds maximum size");
         assert!(set_b.len() <= MAX_SET_SIZE, "Set B exceeds maximum size");
-        
+
         Self {
             set_a,
             set_b,
             intersection_size,
         }
     }
-    
+
     /// Compute the actual intersection size (for witness generation)
     pub fn compute_intersection_size(&self) -> u64 {
         let mut count = 0u64;
@@ -223,15 +198,15 @@ impl PsiCircuit {
 impl Circuit<Fp> for PsiCircuit {
     type Config = PsiConfig;
     type FloorPlanner = SimpleFloorPlanner;
-    
+
     fn without_witnesses(&self) -> Self {
         Self::default()
     }
-    
+
     fn configure(meta: &mut ConstraintSystem<Fp>) -> Self::Config {
         PsiConfig::configure(meta)
     }
-    
+
     fn synthesize(
         &self,
         config: Self::Config,
@@ -239,7 +214,7 @@ impl Circuit<Fp> for PsiCircuit {
     ) -> Result<(), Error> {
         let mut sum_cell: Option<AssignedCell<Fp, Fp>> = None;
         let mut row = 0;
-        
+
         // Compare each element in set_a with each element in set_b
         for a in &self.set_a {
             for b in &self.set_b {
@@ -253,39 +228,33 @@ impl Circuit<Fp> for PsiCircuit {
                 row += 1;
             }
         }
-        
+
         // Expose the final sum as a public input
         if let Some(final_sum) = sum_cell {
             layouter.constrain_instance(final_sum.cell(), config.instance, 0)?;
         }
-        
+
         Ok(())
     }
 }
 
-/// Generate proving and verifying keys using Params generic type
-pub fn setup<Scheme: CommitmentScheme>(
-    params: &Scheme::Params,
-) -> Result<(ProvingKey<Scheme::Curve>, VerifyingKey<Scheme::Curve>), Error>
-where
-    Scheme::Scalar: ff::FromUniformBytes<64>,
-{
-    let empty_circuit = PsiCircuit::default();
-    
-    let vk = keygen_vk(params, &empty_circuit)?;
-    let pk = keygen_pk(params, vk.clone(), &empty_circuit)?;
-    
-    Ok((pk, vk))
-}
-
 /// Simplified setup function for EqAffine curve
-pub fn setup_eq(k: u32) -> Result<(halo2_proofs::poly::commitment::Params<EqAffine>, ProvingKey<EqAffine>, VerifyingKey<EqAffine>), Error> {
+pub fn setup_eq(
+    k: u32,
+) -> Result<
+    (
+        halo2_proofs::poly::commitment::Params<EqAffine>,
+        ProvingKey<EqAffine>,
+        VerifyingKey<EqAffine>,
+    ),
+    Error,
+> {
     let params = halo2_proofs::poly::commitment::Params::<EqAffine>::new(k);
     let empty_circuit = PsiCircuit::default();
-    
+
     let vk = keygen_vk(&params, &empty_circuit)?;
     let pk = keygen_pk(&params, vk.clone(), &empty_circuit)?;
-    
+
     Ok((params, pk, vk))
 }
 
@@ -297,7 +266,7 @@ pub fn generate_proof(
     public_inputs: &[Fp],
 ) -> Result<Vec<u8>, Error> {
     let mut transcript = Blake2bWrite::<_, _, Challenge255<_>>::init(vec![]);
-    
+
     create_proof(
         params,
         pk,
@@ -306,7 +275,7 @@ pub fn generate_proof(
         OsRng,
         &mut transcript,
     )?;
-    
+
     Ok(transcript.finalize())
 }
 
@@ -317,59 +286,50 @@ pub fn verify_proof(
     proof: &[u8],
     public_inputs: &[Fp],
 ) -> Result<(), Error> {
-    use halo2_proofs::plonk::VerificationStrategy;
     let strategy = halo2_proofs::plonk::SingleVerifier::new(params);
     let mut transcript = Blake2bRead::<_, _, Challenge255<_>>::init(proof);
-    
+
     halo2_verify_proof(params, vk, strategy, &[&[public_inputs]], &mut transcript)
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    
+
     #[test]
     fn test_hash_to_field() {
         let h1 = hash_to_field(42);
         let h2 = hash_to_field(42);
         let h3 = hash_to_field(43);
-        
+
         assert_eq!(h1, h2);
         assert_ne!(h1, h3);
     }
-    
+
     #[test]
     fn test_intersection_computation() {
-        let set_a = vec![
-            hash_to_field(1),
-            hash_to_field(2),
-            hash_to_field(3),
-        ];
-        let set_b = vec![
-            hash_to_field(2),
-            hash_to_field(3),
-            hash_to_field(4),
-        ];
-        
+        let set_a = vec![hash_to_field(1), hash_to_field(2), hash_to_field(3)];
+        let set_b = vec![hash_to_field(2), hash_to_field(3), hash_to_field(4)];
+
         let circuit = PsiCircuit::new(set_a, set_b, 2);
         assert_eq!(circuit.compute_intersection_size(), 2);
     }
-    
+
     #[test]
     fn test_full_proof_verification_flow() {
         let set_a = vec![hash_to_field(1), hash_to_field(2)];
         let set_b = vec![hash_to_field(2), hash_to_field(3)];
-        
+
         let circuit = PsiCircuit::new(set_a.clone(), set_b.clone(), 0);
         let intersection_size = circuit.compute_intersection_size();
         assert_eq!(intersection_size, 1);
-        
+
         let k = 10;
         let (params, pk, vk) = setup_eq(k).unwrap();
-        
+
         let circuit = PsiCircuit::new(set_a, set_b, intersection_size);
         let public_inputs = vec![Fp::from(intersection_size)];
-        
+
         let proof = generate_proof(&params, &pk, circuit, &public_inputs).unwrap();
         verify_proof(&params, &vk, &proof, &public_inputs).unwrap();
     }

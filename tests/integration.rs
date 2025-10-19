@@ -1,4 +1,3 @@
-use ff::PrimeField;
 use pasta_curves::Fp;
 use zk_psi_verifier::{
     hash_to_field, PsiCircuit, setup_eq, generate_proof, verify_proof,
@@ -23,7 +22,7 @@ fn test_full_proof_verification_flow() {
     
     let circuit = PsiCircuit::new(set_a.clone(), set_b.clone(), 0);
     let intersection_size = circuit.compute_intersection_size();
-    assert_eq!(intersection_size, 2, "Intersection should be {2, 3}");
+    assert_eq!(intersection_size, 2, "Intersection should be {{2, 3}}");
     
     // Setup
     let k = 10;
@@ -124,7 +123,7 @@ fn test_large_sets() {
     
     let circuit = PsiCircuit::new(set_a.clone(), set_b.clone(), 0);
     let intersection_size = circuit.compute_intersection_size();
-    assert_eq!(intersection_size, 7, "Intersection should be {10..=16}");
+    assert_eq!(intersection_size, 7, "Intersection should be {{10..=16}}");
     
     let k = 12; // Need more rows for larger sets
     let (params, pk, vk) = setup_eq(k).expect("Setup failed");
