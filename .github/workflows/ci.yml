@@ -16,102 +16,99 @@ jobs:
   build:
     name: Build Linux x86_64
     runs-on: ubuntu-latest
-    
+
     steps:
-    - uses: actions/checkout@v3
-    
-    - name: Install Rust
-      uses: actions-rs/toolchain@v1
-      with:
-        profile: minimal
-        toolchain: stable
-        override: true
-    
-    - name: Cache cargo
-      uses: actions/cache@v3
-      with:
-        path: |
-          ~/.cargo/registry
-          ~/.cargo/git
-          target
-        key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
-    
-    - name: Build binaries
-      run: |
-        cargo build --release --bin setup
-        cargo build --release --bin cli
-    
-    - name: Package binaries
-      run: |
-        mkdir -p artifacts
-        cp target/release/setup artifacts/zk-psi-setup-x86_64-linux
-        cp target/release/cli artifacts/zk-psi-cli-x86_64-linux
-        cd artifacts
-        sha256sum * > SHA256SUMS
-        cat SHA256SUMS
-    
-    - name: Upload artifacts
-      uses: actions/upload-artifact@v3
-      with:
-        name: binaries-linux-x86_64
-        path: artifacts/*
-        retention-days: 7
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Install Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          profile: minimal
+          override: true
+
+      - name: Cache cargo
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Build binaries
+        run: |
+          cargo build --release --bin setup
+          cargo build --release --bin cli
+
+      - name: Package binaries
+        run: |
+          mkdir -p artifacts
+          cp target/release/setup artifacts/zk-psi-setup-x86_64-linux
+          cp target/release/cli artifacts/zk-psi-cli-x86_64-linux
+          cd artifacts
+          sha256sum * > SHA256SUMS
+          cat SHA256SUMS
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: binaries-linux-x86_64
+          path: artifacts/
+          retention-days: 7
 
   release:
-    name: Create Release
+    name: Create GitHub Release
     needs: build
     runs-on: ubuntu-latest
     if: startsWith(github.ref, 'refs/tags/')
     permissions:
       contents: write
-    
+
     steps:
-    - uses: actions/checkout@v3
-    
-    - name: Download artifacts
-      uses: actions/download-artifact@v3
-      with:
-        name: binaries-linux-x86_64
-        path: release
-    
-    - name: Display checksums
-      run: |
-        cd release
-        cat SHA256SUMS
-    
-    - name: Create Release
-      uses: softprops/action-gh-release@v1
-      with:
-        files: release/*
-        draft: false
-        prerelease: false
-        generate_release_notes: true
-        body: |
-          ## ZK-PSI Verifier Release
-          
-          Zero-knowledge Private Set Intersection verifier using Halo2 for zkVerify.
-          
-          ### Binaries
-          
-          Download the appropriate binary for your platform:
-          - `zk-psi-setup-*`: Generate cryptographic keys
-          - `zk-psi-cli-*`: Generate and verify ZK proofs
-          
-          ### Checksums
-          
-          See `SHA256SUMS.txt` for binary checksums.
-          
-          ### Usage
-          
-          ```bash
-          # Generate keys
-          ./zk-psi-setup --k 12 --output-dir ./keys
-          
-          # Generate proof
-          ./zk-psi-cli prove --set-a "1,2,3" --set-b "2,3,4" --output proof.bin
-          
-          # Verify proof
-          ./zk-psi-cli verify --proof proof.bin --public-inputs public_inputs.bin
-          ```
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Download build artifacts
+        uses: actions/download-artifact@v3
+        with:
+          name: binaries-linux-x86_64
+          path: release/
+
+      - name: Display checksums
+        run: cat release/SHA256SUMS
+
+      - name: Create Release
+        uses: ncipollo/release-action@v1
+        with:
+          tag: ${{ github.ref_name }}
+          name: "ZK-PSI Verifier ${{ github.ref_name }}"
+          body: |
+            ## ZK-PSI Verifier Release
+
+            Zero-knowledge Private Set Intersection verifier using Halo2 for zkVerify.
+
+            ### Binaries
+            - `zk-psi-setup-*`: Generate cryptographic keys
+            - `zk-psi-cli-*`: Generate and verify ZK proofs
+
+            ### Checksums
+            See `SHA256SUMS` for binary checksums.
+
+            ### Usage
+            ```bash
+            # Generate keys
+            ./zk-psi-setup --k 12 --output-dir ./keys
+
+            # Generate proof
+            ./zk-psi-cli prove --set-a "1,2,3" --set-b "2,3,4" --output proof.bin
+
+            # Verify proof
+            ./zk-psi-cli verify --proof proof.bin --public-inputs public_inputs.bin
+            ```
+          artifacts: release/*
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
