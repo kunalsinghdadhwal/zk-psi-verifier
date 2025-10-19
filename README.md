@@ -157,10 +157,9 @@ The PSI circuit uses a comparison matrix approach:
 
 | Set Size (n×n) | Proof Gen | Verification | Proof Size |
 |----------------|-----------|--------------|------------|
-| 4×4            | ~800ms    | ~120ms       | ~3KB       |
-| 8×8            | ~1.5s     | ~140ms       | ~3KB       |
-| 16×16          | ~3.2s     | ~180ms       | ~3KB       |
-| 32×32 (max)    | ~12s      | ~250ms       | ~3KB       |
+| 4×4            | ~335ms    | ~13.7ms      | ~3KB       |
+| 8×8            | ~346ms    | ~13.2ms      | ~3KB       |
+| 16×16          | ~360ms    | ~12.8ms      | ~3KB       |
 
 ## Testing
 

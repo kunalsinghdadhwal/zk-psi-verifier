@@ -103,7 +103,7 @@ fn bench_setup(c: &mut Criterion) {
 fn bench_intersection_computation(c: &mut Criterion) {
     let mut group = c.benchmark_group("intersection_computation");
 
-    for size in [4, 8, 16, 32].iter() {
+    for size in [4, 8, 16].iter() {
         let set_a: Vec<Fp> = (1..=*size).map(|i| hash_to_field(i as u64)).collect();
         let set_b: Vec<Fp> = ((*size / 2)..=(*size + *size / 2))
             .map(|i| hash_to_field(i as u64))
