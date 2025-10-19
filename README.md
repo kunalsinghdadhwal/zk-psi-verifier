@@ -188,42 +188,7 @@ cargo bench
 
 Criterion outputs HTML reports to target/criterion/
 
-## zkVerify Integration
-
-zkVerify is a modular blockchain for universal ZK proof verification. This library is designed for seamless integration:
-
-1. Generate proof locally using this crate
-2. Submit proof + public inputs to zkVerify verification layer
-3. Receive attestation on-chain without revealing private sets
-
-Benefits:
-- Decentralized trust: No single verifier
-- Cost efficiency: Amortized verification across multiple proofs
-- Interoperability: Use PSI proofs in smart contracts, DAOs, etc.
-
-## Project Structure
-
-```
-zk-psi-verifier/
-├── src/
-│   ├── lib.rs                 # Core library (PsiCircuit, setup, prove, verify)
-│   └── bin/
-│       ├── setup.rs           # Key generation binary
-│       └── cli.rs             # Prove/verify CLI
-├── tests/
-│   └── integration.rs         # End-to-end tests
-├── benches/
-│   └── bench.rs               # Criterion benchmarks
-├── examples/
-│   ├── basic_usage.rs         # Simple example
-│   └── string_sets.rs         # String-based PSI example
-├── Cargo.toml                 # Dependencies
-└── README.md
-```
-
 ## Roadmap & Extensions
-
-### Suggested Extension: Recursive Composition for Batched PSI
 
 **Problem**: Proving multiple PSI instances (e.g., 10 pairs of sets) requires 10 separate proofs.
 
@@ -243,30 +208,9 @@ zk-psi-verifier/
 - Modify PsiCircuit to accept a vector of sub-proofs
 - Add aggregation logic in lib.rs
 
-## Contributing
-
-Contributions welcome! Areas of interest:
-- Optimizing circuit constraints (reduce proof time)
-- Adding Poseidon hash gadget (more ZK-native)
-- Implementing batch verification
-- Integration guides for zkVerify
-
-## License
-
-Dual-licensed under MIT License and Apache License 2.0
-
 ## Acknowledgments
 
 Built with:
 - Halo2 by Zcash/Electric Coin Company
 - pasta_curves (Pallas/Vesta curves)
 - Inspired by research on private set intersection and zkSNARKs
-
-## Contact
-
-- GitHub: @kunalsinghdadhwal
-- Repository: https://github.com/kunalsinghdadhwal/zk-psi-verifier
-
----
-
-Built for zkVerify - Efficient ZK verification for decentralized networks

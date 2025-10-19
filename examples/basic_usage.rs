@@ -2,7 +2,7 @@ use pasta_curves::Fp;
 use zk_psi_verifier::{generate_proof, hash_to_field, setup_eq, verify_proof, PsiCircuit};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    println!("=== ZK-PSI Basic Example ===\n");
+    println!("ZK-PSI Basic Example\n");
 
     // Define two sets
     let set_a_values = vec![1, 2, 3, 4, 5];
@@ -26,7 +26,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("Performing trusted setup...");
     let k = 10; // Circuit size parameter
     let (params, pk, vk) = setup_eq(k)?;
-    println!("✓ Setup complete\n");
+    println!("Setup complete\n");
 
     // Generate proof
     println!("Generating zero-knowledge proof...");
@@ -36,16 +36,16 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let proof = generate_proof(&params, &pk, circuit, &public_inputs)
         .map_err(|e| format!("Proof generation failed: {:?}", e))?;
 
-    println!("✓ Proof generated ({} bytes)\n", proof.len());
+    println!("Proof generated ({} bytes)\n", proof.len());
 
     // Verify proof
     println!("Verifying proof...");
     verify_proof(&params, &vk, &proof, &public_inputs)
         .map_err(|e| format!("Verification failed: {:?}", e))?;
 
-    println!("✓ Proof verified successfully!\n");
+    println!("Proof verified successfully!\n");
 
-    println!("=== Summary ===");
+    println!("Summary");
     println!("The prover has demonstrated knowledge of two sets");
     println!(
         "with intersection size {} without revealing the sets!",

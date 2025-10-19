@@ -2,21 +2,13 @@ use pasta_curves::Fp;
 use zk_psi_verifier::{generate_proof, hash_string_to_field, setup_eq, verify_proof, PsiCircuit};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    println!("=== ZK-PSI String Sets Example ===\n");
+    println!("ZK-PSI String Sets Example\n");
 
     // Alice's contacts
-    let alice_contacts = vec![
-        "alice@example.com",
-        "bob@example.com",
-        "charlie@example.com",
-    ];
+    let alice_contacts = vec!["kunal@example.com", "wow@example.com", "test@example.com"];
 
     // Bob's contacts
-    let bob_contacts = vec![
-        "bob@example.com",
-        "charlie@example.com",
-        "david@example.com",
-    ];
+    let bob_contacts = vec!["wow@example.com", "test@example.com", "alan@example.com"];
 
     println!("Alice's contacts: {:?}", alice_contacts);
     println!("Bob's contacts: {:?}", bob_contacts);
@@ -36,13 +28,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let intersection_size = circuit.compute_intersection_size();
 
     println!("\nCommon contacts: {}", intersection_size);
-    println!("(bob@example.com and charlie@example.com)\n");
 
     // Setup
     println!("Performing trusted setup...");
     let k = 10;
     let (params, pk, vk) = setup_eq(k)?;
-    println!("✓ Setup complete\n");
+    println!("Setup complete\n");
 
     // Alice generates a proof
     println!("Alice generating proof of common contacts...");
@@ -60,11 +51,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .map_err(|e| format!("Verification failed: {:?}", e))?;
 
     println!(
-        "✓ Bob confirmed: {} common contacts exist\n",
+        "Bob confirmed: {} common contacts exist\n",
         intersection_size
     );
 
-    println!("=== Summary ===");
+    println!("Summary");
     println!(
         "Alice and Bob discovered they have {} common contacts",
         intersection_size

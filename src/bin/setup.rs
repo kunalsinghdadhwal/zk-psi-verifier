@@ -42,12 +42,6 @@ fn main() -> Result<()> {
     fs::write(&params_path, params_bytes)?;
     println!("Saved params to {:?}", params_path);
 
-    // Note: Halo2 0.3 ProvingKey and VerifyingKey don't have built-in serialization
-    // For production use, you would need to:
-    // 1. Use halo2_proofs with serde feature (if available)
-    // 2. Store the circuit and regenerate keys
-    // 3. Use a custom serialization method
-    // For now, we'll store a marker file
     let pk_path = args.output_dir.join("proving_key.bin");
     fs::write(&pk_path, b"PK_PLACEHOLDER")?;
     println!("Proving key generated (not serialized - regenerate when needed)");
