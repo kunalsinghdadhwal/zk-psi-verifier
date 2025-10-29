@@ -52,7 +52,7 @@ cargo build --release
 ### 1. Generate Cryptographic Keys
 
 ```bash
-cargo run --release --bin setup -- --k 12 --output-dir ./keys
+cargo run --release --bin zk-psi-setup -- --k 12 --output-dir ./keys
 ```
 
 This generates:
@@ -63,7 +63,7 @@ This generates:
 ### 2. Generate a Proof
 
 ```bash
-cargo run --release --bin cli -- prove \
+cargo run --release --bin zk-psi-cli -- prove \
   --set-a "1,2,3,4,5" \
   --set-b "3,4,5,6,7" \
   --output proof.bin \
@@ -75,7 +75,7 @@ cargo run --release --bin cli -- prove \
 ### 3. Verify the Proof
 
 ```bash
-cargo run --release --bin cli -- verify \
+cargo run --release --bin zk-psi-cli -- verify \
   --proof proof.bin \
   --public-inputs public_inputs.bin \
   --vk ./keys/verifying_key.bin \
@@ -87,7 +87,7 @@ cargo run --release --bin cli -- verify \
 The CLI automatically hashes non-numeric inputs:
 
 ```bash
-cargo run --release --bin cli -- prove \
+cargo run --release --bin zk-psi-cli -- prove \
   --set-a "alice,bob,charlie" \
   --set-b "bob,charlie,david" \
   --output proof.bin \
