@@ -2,8 +2,9 @@ use ff::PrimeField;
 use halo2_proofs::{
     circuit::{AssignedCell, Layouter, SimpleFloorPlanner, Value},
     plonk::{
-        create_proof, keygen_pk, keygen_vk, verify_proof as halo2_verify_proof, Advice, Circuit,
-        Column, ConstraintSystem, Error, Expression, Instance, ProvingKey, Selector, VerifyingKey,
+        Advice, Circuit, Column, ConstraintSystem, Error, Expression, Instance, ProvingKey,
+        Selector, VerifyingKey, create_proof, keygen_pk, keygen_vk,
+        verify_proof as halo2_verify_proof,
     },
     poly::Rotation,
     transcript::{Blake2bRead, Blake2bWrite, Challenge255},
@@ -18,6 +19,21 @@ type Halo2Setup<E> = (
     ProvingKey<E>,
     VerifyingKey<E>,
 );
+
+pub fn draw_circuit(k: u32, circuit: &PsiCircuit) {
+    use plotters::prelude::*;
+
+    let base = BitMapBackend::new("zk-psi-circuit-layout.png", (1600, 1600)).into_drawing_area();
+    base.fill(&WHITE).unwrap();
+    let base = base
+        .titled("PSI Circuit Layout", ("sans-serif", 24))
+        .unwrap();
+
+    halo2_proofs::dev::CircuitLayout::default()
+        .show_equality_constraints(true)
+        .render(k, circuit, &base)
+        .unwrap();
+}
 
 pub fn hash_to_field(value: u64) -> Fp {
     let bytes = value.to_le_bytes();

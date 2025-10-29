@@ -6,7 +6,8 @@ use std::path::PathBuf;
 use std::time::Instant;
 
 use zk_psi_verifier::{
-    generate_proof, hash_string_to_field, hash_to_field, setup_eq, verify_proof, PsiCircuit,
+    PsiCircuit, draw_circuit, generate_proof, hash_string_to_field, hash_to_field, setup_eq,
+    verify_proof,
 };
 
 #[derive(Parser)]
@@ -111,6 +112,7 @@ fn prove_command(
     let k_bytes = fs::read(&params_path)
         .with_context(|| format!("Failed to read params from {:?}", params_path))?;
     let k: u32 = bincode::deserialize(&k_bytes)?;
+    draw_circuit(k, &circuit);
 
     println!("Params loaded (k={})", k);
     println!("Regenerating proving key...");
